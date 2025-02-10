@@ -19,6 +19,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 运行 combine.py
+# 运行 
 cd /home/huben/hlahd.1.7.0/onepotscript
-python3 pdf-excel-combine_date.py
+python 5_sealadd.py

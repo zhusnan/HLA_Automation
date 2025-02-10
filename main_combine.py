@@ -20,7 +20,7 @@ def main():
 
     # ---------------- HLHAD 分析模块 ----------------
     print("正在运行 HLHAD  ...")
-    result = subprocess.run(["/home/huben/hlahd.1.7.0/onepotscript/hlahd_analysis.sh"], shell=True)
+    result = subprocess.run(["/home/huben/hlahd.1.7.0/onepotscript/3_hlahd_analysis.sh"], shell=False)
     if result.returncode != 0:
         print("hlahd_analysis.sh 执行失败，退出码：", result.returncode)
         sys.exit(result.returncode)
@@ -28,7 +28,7 @@ def main():
 
     # ---------------- 报告生成模块 ----------------
     print("PDF报告生成中...")
-    result = subprocess.run(["/home/huben/hlahd.1.7.0/onepotscript/run_pdf-excle-combine_date.sh"], shell=True)
+    result = subprocess.run(["/home/huben/hlahd.1.7.0/onepotscript/4.1_run_pdf-excle-combine_date.sh"], shell=False)
     if result.returncode != 0:
         print("run_pdf-excle-combine_date.sh失败，退出码：", result.returncode)
         sys.exit(result.returncode)
@@ -36,12 +36,19 @@ def main():
 
     # ---------------- 盖章 ----------------
     print("盖章中...")
-    result = subprocess.run(["/home/huben/hlahd.1.7.0/onepotscript/run_sealadd.sh"], shell=True)
+    result = subprocess.run(["/home/huben/hlahd.1.7.0/onepotscript/5.1_run_sealadd.sh"], shell=False)
     if result.returncode != 0:
         print("run_sealadd.sh失败，退出码：", result.returncode)
         sys.exit(result.returncode)
     print("盖章成功")
 
+    # ---------------- 模版  ----------------
+    print("最终报告...")
+    result = subprocess.run(["/home/huben/hlahd.1.7.0/onepotscript/6.1_run_finalmake.sh"], shell=False)
+    if result.returncode != 0:
+        print("run_sealadd.sh失败，退出码：", result.returncode)
+        sys.exit(result.returncode)
+    print("结束！")
 
 if __name__ == "__main__":
     main()

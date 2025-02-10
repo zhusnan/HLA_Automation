@@ -4,10 +4,28 @@ from PIL import Image, ImageDraw
 import fitz  # PyMuPDF
 from datetime import datetime
 
-# 设置路径（请根据实际路径调整）
+# 设置路径
 SEAL_IMAGE_PATH = "/home/huben/hlahd.1.7.0/sample_info/seal_red.png"
-PDF_FILE_PATH = "/home/huben/hlahd.1.7.0/sample/20250125_summary.pdf"
-OUTPUT_PDF_PATH = "/home/huben/hlahd.1.7.0/sample/11111.pdf"
+BASE_SAMPLE_DIR = "/home/huben/hlahd.1.7.0/sample"
+download_folders = [d for d in os.listdir(BASE_SAMPLE_DIR) 
+                    if os.path.isdir(os.path.join(BASE_SAMPLE_DIR, d))]
+                    
+# 如果需要进一步确保目录名称中包含 '-'，可以再过滤：
+download_folders = [d for d in download_folders if "-" in d]
+
+if not download_folders:
+    print("未找到符合格式的下载文件夹！")
+    exit(1)
+
+# 选择第一个符合条件的目录
+download_folder = os.path.join(BASE_SAMPLE_DIR, download_folders[0])
+folder_parts = os.path.basename(download_folder).split("-")
+if len(folder_parts) < 2:
+    print("下载文件夹名称格式异常！")
+    exit(1)
+excel_base = folder_parts[1]
+PDF_FILE_PATH = os.path.join(BASE_SAMPLE_DIR, excel_base + "_summary.pdf")
+OUTPUT_PDF_PATH = os.path.join(BASE_SAMPLE_DIR, excel_base + "_summary_seal.pdf")
 
 
 # 1. 将 PDF 转换为图像，明确指定 DPI（例如200）
@@ -42,7 +60,7 @@ def load_stamp_image(stamp_path):
 # 4. 将印章插入到图像中的指定位置
 #    rect: 一个四元组 (x0, y0, x1, y1) 表示 PDF 中的文本区域（单位：点）
 #    我们根据图像宽度与 A4 宽度(595pt)的比例计算缩放比例
-def place_stamp_on_image(image, original_stamp_image, rect, stamp_width=150, stamp_height=150, offset_x=-30, offset_y=60):
+def place_stamp_on_image(image, original_stamp_image, rect, stamp_width=150, stamp_height=150, offset_x=-30, offset_y=80):
     # 从原始印章图像创建一个副本，再调整大小
     stamp_image = original_stamp_image.copy().resize((stamp_width, stamp_height), Image.Resampling.LANCZOS)
     print("Resized stamp image size:", stamp_image.size)

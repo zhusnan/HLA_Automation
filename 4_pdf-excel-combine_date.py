@@ -2,25 +2,23 @@
 import os
 import glob
 import pandas as pd
+from datetime import datetime
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Spacer, PageBreak
 from reportlab.lib import colors
-from docx import Document
-from docx.shared import Pt
 
 # ---------------------
 # 参数设置
 BASE_SAMPLE_DIR = "/home/huben/hlahd.1.7.0/sample"
 SAMPLE_INFO_FILE = "/home/huben/hlahd.1.7.0/sample_info/sample_info.xlsx"
-WORD_TEMPLATE = "/home/huben/hlahd.1.7.0/sample_info/HLA-typing.docx"
+WORD_TEMPLATE = "/home/huben/hlahd.1.7.0/sample_info/HLA-typing.docx"  # 当前未使用
 # 后期可以调整修改
 GENES = ["A", "B", "C", "DQB1", "DRB1", "DPB1"]
 
 
 def find_download_folder(base_dir):
     """
-    在 base_dir 下寻找下载文件夹（排除特定名称的目录）
-    返回找到的第一个目录
+    在 base_dir 下寻找下载文件夹（排除特定名称的目录），返回找到的第一个目录
     """
     for item in os.listdir(base_dir):
         full_path = os.path.join(base_dir, item)
@@ -33,8 +31,7 @@ def find_download_folder(base_dir):
 def extract_hla_from_file(result_file_path):
     """
     解析最终结果文本文件，返回一个字典，键为基因（例如 "A"），值为等位基因串。
-    若第二列为 "-"，则复制第一列。
-    去除 "HLA-<gene>*" 前缀，仅保留等位基因号（如 "02:01:01"）。
+    若第二列为 "-"，则复制第一列。去除 "HLA-<gene>*" 前缀，仅保留等位基因号（如 "02:01:01"）。
     """
     hla_data = {}
     with open(result_file_path, "r") as f:
@@ -62,27 +59,23 @@ def extract_hla_from_file(result_file_path):
 
 def generate_pdf(pdf_data_rows, pdf_path):
     """
-    生成 PDF 报告。报告内容由 3 个紧密相连的表格组成：
-    如果超过 4 个样本，自动换到下一页。
+    生成 PDF 报告，每页最多显示5个样本的信息。
+    每个样本包含3个表格展示信息，页末添加页脚信息（Author、Reviewer、日期），然后换页（PageBreak）。
     """
     doc = SimpleDocTemplate(pdf_path, pagesize=A4)
     elements = []
-    max_per_page = 5  # 每页最多显示5个样本表格
-    rows_per_page = 2  # 每个样本占用两行（每个表格）
+    max_per_page = 5  # 每页最多显示5个样本
+    current_date = datetime.now().strftime("%Y-%m-%d")
 
     for i, pdf_row in enumerate(pdf_data_rows):
-        if i > 0 and i % max_per_page == 0:  # 每超过4个表格就换一页
-            doc.build(elements)
-            elements = []
+        # 每页的第一个样本不加 Spacer，其余样本之间加间隔
+        if i % max_per_page != 0:
+            elements.append(Spacer(1, 12))
 
-        # 添加空隙
-        if i > 0:
-            elements.append(Spacer(1, 12))  # 12单位的空隙
-
-        # 表格1：2列，2行，宽度：[225,225]
+        # 表格1：显示 Sample_ID（Donor_ID）
         data1 = [
             ["Sample_ID"],
-            [pdf_row.get("Donor_ID")]
+            [pdf_row.get("Donor_ID", "")]
         ]
         table1 = Table(data1, colWidths=[450])
         style1 = TableStyle([
@@ -96,7 +89,7 @@ def generate_pdf(pdf_data_rows, pdf_path):
         table1.setStyle(style1)
         elements.append(table1)
 
-        # 表格2：3列，2行，宽度：[150,150,150]
+        # 表格2：显示 HLA-A, HLA-B, HLA-C
         data2 = [
             ["HLA-A", "HLA-B", "HLA-C"],
             [pdf_row.get("A", ""), pdf_row.get("B", ""), pdf_row.get("C", "")]
@@ -113,7 +106,7 @@ def generate_pdf(pdf_data_rows, pdf_path):
         table2.setStyle(style2)
         elements.append(table2)
 
-        # 表格3：3列，2行，宽度：[150,150,150]
+        # 表格3：显示 HLA-DQB1, HLA-DRB1, HLA-DPB1
         data3 = [
             ["HLA-DQB1", "HLA-DRB1", "HLA-DPB1"],
             [pdf_row.get("DQB1", ""), pdf_row.get("DRB1", ""), pdf_row.get("DPB1", "")]
@@ -130,6 +123,27 @@ def generate_pdf(pdf_data_rows, pdf_path):
         table3.setStyle(style3)
         elements.append(table3)
 
+        # 判断是否为本页最后一个样本或者最后一个样本总体，
+        # 如果是，则在该页末尾添加页脚信息，再插入 PageBreak（如果后面还有内容）
+        if (i + 1) % max_per_page == 0 or (i + 1) == len(pdf_data_rows):
+            elements.append(Spacer(1, 20))
+            footer_data = [
+                ["Author: BoyuZhao", "Reviewer: LangCao", f"Date:{current_date}"]
+            ]
+            footer_table = Table(footer_data, colWidths=[180, 180, 180])
+            style_footer = TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 0, colors.white)
+            ])
+            footer_table.setStyle(style_footer)
+            elements.append(footer_table)
+
+            # 如果不是最后一页，则添加分页符
+            if (i + 1) < len(pdf_data_rows):
+                elements.append(PageBreak())
+
     doc.build(elements)
 
 
@@ -140,6 +154,7 @@ def main():
         print("未在 {} 下找到下载文件夹！".format(BASE_SAMPLE_DIR))
         return
     print("下载文件夹：", download_folder)
+
     # 提取 Excel/Word 的基础名称：取下载文件夹名称中第二部分（例如 "20250125"）
     folder_parts = os.path.basename(download_folder).split("-")
     if len(folder_parts) < 2:
@@ -153,9 +168,11 @@ def main():
         print("结果目录 {} 不存在！".format(result_dir))
         return
 
-    pdf_data_rows = []  # 用于汇总 Excel 数据，每项为 dict
-    sample_folders = [d for d in os.listdir(result_dir) if
-                      os.path.isdir(os.path.join(result_dir, d)) and d.startswith("JZ")]
+    pdf_data_rows = []  # 用于汇总 Excel 与 PDF 的数据，每项为 dict
+    sample_folders = [d for d in os.listdir(result_dir)
+                      if os.path.isdir(os.path.join(result_dir, d)) and d.startswith("JZ")]
+
+    # 逐个样本处理
     for sample_folder in sample_folders:
         sample_folder_full = os.path.join(result_dir, sample_folder)
         # 每个样本文件夹内部有一个 result 子目录，其中包含最终结果文件 *_final.result.txt
@@ -182,15 +199,17 @@ def main():
         huben_str = sample_id_full[-2:]
         try:
             huben_val = int(huben_str)
-        except:
+        except Exception as e:
             print("无法转换 Huben 数值：", huben_str)
             continue
+
         # 读取 sample_info.xlsx
         try:
             sample_info_df = pd.read_excel(SAMPLE_INFO_FILE, engine='openpyxl')
         except Exception as e:
             print("读取 sample_info.xlsx 失败：", e)
             return
+
         # 在 sample_info.xlsx 中查找匹配记录：匹配 Company 和 Huben
         df_match = sample_info_df[(sample_info_df["Company"] == company) & (sample_info_df["Huben"] == huben_val)]
         if df_match.empty:
@@ -200,6 +219,7 @@ def main():
         donor_id = str(record["sample"]).strip()  # Donor_ID
         lot_number = str(record["lot"]).strip()  # LotNumber
 
+        # 将 Huben 值也保存，便于后续排序（Excel 中不输出该字段）
         pdf_row = {
             "LotNumber": lot_number,
             "Donor_ID": donor_id,
@@ -208,16 +228,21 @@ def main():
             "C": hla_dict.get("C", ""),
             "DQB1": hla_dict.get("DQB1", ""),
             "DRB1": hla_dict.get("DRB1", ""),
-            "DPB1": hla_dict.get("DPB1", "")
+            "DPB1": hla_dict.get("DPB1", ""),
+            "Huben": huben_val
         }
         pdf_data_rows.append(pdf_row)
 
-    # 生成汇总 Excel 文件
     if pdf_data_rows:
+        # 按 Huben 排序，保证输出顺序与 sample_info.xlsx 中的顺序一致
+        pdf_data_rows.sort(key=lambda x: x["Huben"])
+
+        # 生成 Excel 汇总文件（不输出 Huben 字段）
         df_summary = pd.DataFrame(pdf_data_rows,
                                   columns=["LotNumber", "Donor_ID", "A", "B", "C", "DQB1", "DRB1", "DPB1"])
         df_summary.rename(columns={"A": "HLA-A", "B": "HLA-B", "C": "HLA-C",
-                                   "DQB1": "HLA-DQB1", "DRB1": "HLA-DRB1", "DPB1": "HLA-DPB1"}, inplace=True)
+                                   "DQB1": "HLA-DQB1", "DRB1": "HLA-DRB1", "DPB1": "HLA-DPB1"},
+                          inplace=True)
         try:
             df_summary.to_excel(excel_save_path, index=False, engine='openpyxl')
             print("生成 Excel 汇总文件：", excel_save_path)

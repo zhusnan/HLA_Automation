@@ -1,4 +1,3 @@
-  GNU nano 7.2             run_pdf-excle-combine_date.py
 #!/bin/bash
 # run_combine.sh
 # 这个脚本用于激活 conda 环境 huben 后运行 combine.py
@@ -22,4 +21,4 @@ fi
 
 # 运行 combine.py
 cd /home/huben/hlahd.1.7.0/onepotscript
-python3 sealadd.py
+python3 4_pdf-excel-combine_date.py

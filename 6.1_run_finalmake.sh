@@ -21,4 +21,4 @@ fi
 
 # 运行 combine.py
 cd /home/huben/hlahd.1.7.0/onepotscript
-python3 combine.py
+python 6_finalmake.py
